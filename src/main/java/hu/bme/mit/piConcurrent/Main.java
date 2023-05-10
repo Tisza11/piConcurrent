@@ -50,6 +50,9 @@ public class Main {
     //ebben a mappában van a .i és *.graphml file
     public static String sourceFolder;
 
+    //ebben vannak eltárolva azok az élek, amelyeken meg van adva threadID
+    public static ArrayList<Edge> szalelek = new ArrayList<>();
+
 //    //a jelenlegi szálat tárolja    //jelenleg nincs használva
 //    public static int CurrentThread = 0;
 
@@ -177,11 +180,11 @@ public class Main {
                 FindThreadID(data, newEdge);
                 //Pl.: for ciklus eleme-e és akkor figyelmen kívül hagyható-e (pl i < 5 vizsálata)
                 if(data.getAttribute("key").equals("stmt")) {
-                    newEdge.Stmt = data.getTextContent();
+                    newEdge.stmt = data.getTextContent();
                 }
                 FindFunType(data, newEdge);
                 if(data.getAttribute("key").equals("startline")) {
-                    newEdge.Startline = Integer.parseInt(data.getTextContent());
+                    newEdge.startLine = Integer.parseInt(data.getTextContent());
                     newEdge.toUse = true;
                 }
             }
@@ -200,22 +203,25 @@ public class Main {
             Matcher matcher = pattern.matcher(data.getTextContent());
             if(matcher.find()){
                 int strtidx = matcher.end();
-                newEdge.Assumption = data.getTextContent().substring(strtidx);
+                newEdge.assumption = data.getTextContent().substring(strtidx);
             }
         }
     }
 
     /**
-     * Ha egy élen van olyan adat, ami a threadID-t tárolja, azt elmentjük az élre
+     * Ha egy élen van olyan adat, ami a threadID-t tárolja (akár a jelenlegit, akár az éppen létrehozottat), azt elmentjük az élre
      * Azért lett kiszervezve, hogy az ReadXML() átláthatóbb legyen
      * @param data - Egy él egy adata
      * @param newEdge - Az új él, ami fel lesz véve
      */
     public static void FindThreadID(Element data, Edge newEdge){
         if(data.getAttribute("key").equals("threadId")) {
-            newEdge.Thread = Integer.parseInt(data.getTextContent());
+            newEdge.thread = Integer.parseInt(data.getTextContent());
             newEdge.toUse = true;
-            if(!idk.contains(Integer.parseInt(data.getTextContent())))idk.add(Integer.parseInt(data.getTextContent()));
+            if(!idk.contains(Integer.parseInt(data.getTextContent()))) idk.add(Integer.parseInt(data.getTextContent()));
+        }
+        if(data.getAttribute("key").equals("createThread")) {
+            newEdge.createdThread = Integer.parseInt(data.getTextContent());
         }
     }
 
@@ -235,9 +241,9 @@ public class Main {
                 matcher.find();
                 int endidx = matcher.end();
                 String funcname = data.getTextContent().substring(0, endidx);
-                newEdge.Type = funcname.substring(("__VERIFIER_nondet_").length());
-                if(newEdge.Type.startsWith("u")) newEdge.Type = "unsigned " + newEdge.Type.substring(1);
-                newEdge.Assumptionresultfunction = funcname;
+                newEdge.type = funcname.substring(("__VERIFIER_nondet_").length());
+                if(newEdge.type.startsWith("u")) newEdge.type = "unsigned " + newEdge.type.substring(1);
+                newEdge.assumptionResultFunction = funcname;
                 newEdge.haveNondetfv = true;
             }
         }
@@ -249,21 +255,26 @@ public class Main {
      */
     public static void Init(){
         if(edges.size() == 0) return;
-        SortByFunction();
         int diff = 0;
-        headerbe.append(edgesForInit.get(0).Type + " tomb" + diff + "[" + (int) edgesForInit.stream().filter(c -> edgesForInit.get(0).Type.equals(c.Type)).count() + "] = {");
+        for(int i = 0; i < edges.size(); i++){
+            if(edges.get(i).haveNondetfv) diff++;
+        }
+        if(diff == 0) return;
+        diff = 0;
+        SortByFunction();
+        headerbe.append(edgesForInit.get(0).type + " tomb" + diff + "[" + (int) edgesForInit.stream().filter(c -> edgesForInit.get(0).type.equals(c.type)).count() + "] = {");
         for(int i = 0; i < edgesForInit.size() - 1; i++){
-            headerbe.append(edgesForInit.get(i).Assumption);
-            if(!edgesForInit.get(i).Assumptionresultfunction.equals(edgesForInit.get(i + 1).Assumptionresultfunction)) {
-                headerbe.append("};\nint idx" + diff + " = 0;\n" + edgesForInit.get(i).Type + " " + edgesForInit.get(i).Assumptionresultfunction + "(){\n\treturn tomb" + diff + "[idx" + diff + "++];\n}\n");
+            headerbe.append(edgesForInit.get(i).assumption);
+            if(!edgesForInit.get(i).assumptionResultFunction.equals(edgesForInit.get(i + 1).assumptionResultFunction)) {
+                headerbe.append("};\nint idx" + diff + " = 0;\n" + edgesForInit.get(i).type + " " + edgesForInit.get(i).assumptionResultFunction + "(){\n\treturn tomb" + diff + "[idx" + diff + "++];\n}\n");
                 diff++;
-                String seged = edgesForInit.get(i + 1).Type;
-                headerbe.append(edgesForInit.get(i + 1).Type + " tomb" + diff + "[" + (int) edgesForInit.stream().filter(c -> seged.equals(c.Type)).count() + "] = {");
+                String seged = edgesForInit.get(i + 1).type;
+                headerbe.append(edgesForInit.get(i + 1).type + " tomb" + diff + "[" + (int) edgesForInit.stream().filter(c -> seged.equals(c.type)).count() + "] = {");
             }else{
                 headerbe.append(", ");
             }
         }
-        headerbe.append(edgesForInit.get(edgesForInit.size() - 1).Assumption + "};\nint idx" + diff + " = 0;\n" + edgesForInit.get(edgesForInit.size() - 1).Type + " " + edgesForInit.get(edgesForInit.size() - 1).Assumptionresultfunction + "(){\n\treturn tomb" + diff + "[idx" + diff + "++];\n}\n");
+        headerbe.append(edgesForInit.get(edgesForInit.size() - 1).assumption + "};\nint idx" + diff + " = 0;\n" + edgesForInit.get(edgesForInit.size() - 1).type + " " + edgesForInit.get(edgesForInit.size() - 1).assumptionResultFunction + "(){\n\treturn tomb" + diff + "[idx" + diff + "++];\n}\n");
     }
 
     /**
@@ -280,7 +291,7 @@ public class Main {
         Collections.sort(edgesForInit,new Comparator<>() {
             @Override
             public int compare(Edge e1, Edge e2) {
-                return e1.Assumptionresultfunction.compareTo(e2.Assumptionresultfunction);
+                return e1.assumptionResultFunction.compareTo(e2.assumptionResultFunction);
             }
         });
     }
@@ -327,10 +338,11 @@ public class Main {
     public static void ReadFuns() {
         Pattern pattern;
         Matcher matcher;
-        int i = 1830;
+        int i = 1833;
         int counter = 1;
         //whitespace, valami, whitespace, csillag, whitespace, valami, whitespace, nyitó zárójel, valami, záró zárójel, whitespace, nyitó kapcsoszárójel - regex-re illeszkedő fv
-        pattern = Pattern.compile("\\s*.*\\s*\\*\\s*.*\\s*\\(.*\\)\\s*\\{\n");
+//        pattern = Pattern.compile("\\s*.*\\s*\\*\\s*.*\\s*\\(.*\\)\\s*\\{\n");
+        pattern = Pattern.compile(".*\\*.*\\(.*\\).*\\{.*");
         while (i < sorok.size()) {
             matcher = pattern.matcher(sorok.get(i));
             if (matcher.find() || sorok.get(i).contains("main")) {
@@ -361,8 +373,8 @@ public class Main {
      */
     public static void Checker(){
         for(int i = 0; i < edges.size(); i++){
-            if(edges.get(i).Assumptionresultfunction.equals("fgv")){
-                int sor = edges.get(i).Startline;
+            if(edges.get(i).assumptionResultFunction.equals("fgv")){
+                int sor = edges.get(i).startLine;
                 if(!sorok.get(i).contains("__VERIFIER_nondet_")) return;
                 //2 sor lett hozzá adva (--> nem ehhez van hozzáadva elv)
                 int typeEleje = sorok.get(sor + 1).lastIndexOf("__VERIFIER_nondet_");
@@ -373,9 +385,9 @@ public class Main {
                 int endidx = matcher.end();
                 int startidx = matcher.start();
                 String funcname = sorok.get(sor + 1).substring(startidx, endidx);
-                edges.get(i).Type = funcname.substring(("__VERIFIER_nondet_").length());
-                if(edges.get(i).Type.startsWith("u")) edges.get(i).Type = "unsigned " + edges.get(i).Type.substring(1);
-                edges.get(i).Assumptionresultfunction = funcname;
+                edges.get(i).type = funcname.substring(("__VERIFIER_nondet_").length());
+                if(edges.get(i).type.startsWith("u")) edges.get(i).type = "unsigned " + edges.get(i).type.substring(1);
+                edges.get(i).assumptionResultFunction = funcname;
 
             }
         }
@@ -388,16 +400,17 @@ public class Main {
      */
     public static void WriteCode(String targetFolder){
         SearchThreadChanges();
-        TopOfCode();
         int j = SearchFirstJoin();
-        int LastLineInMain = FindLastLines();
-
+        /*int LastLineInMain = */FindLastLines();
+        int eleje = TopOfCode();
         //sorok és hozzájuk tartozó részek összeállítása
-        for(int i = 0; i < sorok.size(); i++){
-            if(j == i && j > 0)kod.append("pthread_mutex_unlock(&mutex);\n");
+        for(int i = eleje; i < sorok.size(); i++){
+            if(j == (i + 1) && j > 0)kod.append("    pthread_mutex_unlock(&mutex);\n");
             SetTheEndOfFunctions(i);
             kod.append(sorok.get(i));   /*<----------sor hozzáadás---------<<<<<*/
             kod.append("\n");
+            SetAfterCrate(i);
+            SetTheChange(i);
             SetTheStartOfFunctions(i);
         }
         CleareFolder();
@@ -409,16 +422,15 @@ public class Main {
      * Azért lett kiszervezve, hogy a WriteCode() átláthatóbb legyen
      */
     public static void SearchThreadChanges(){
-        ArrayList<Edge> szalelek = new ArrayList<>();
         for(int i = 0; i < edges.size(); i++){
-            if(edges.get(i).Thread != -1){
+            if(edges.get(i).thread != -1){
                 szalelek.add(edges.get(i));
             }
         }
         //ha adott élre történik az ugrás
         for (int i = 0; i < szalelek.size() - 1; i++) {
-            if(szalelek.get(i).Thread != szalelek.get(i + 1).Thread){
-                szalelek.get(i + 1).threadChanged = true;
+            if(szalelek.get(i).thread != szalelek.get(i + 1).thread){
+                szalelek.get(i).threadChanges = true;
             }
         }
     }
@@ -427,23 +439,32 @@ public class Main {
      * A kód elejére írt importok, globális változók, amik előre adottak
      * Azért lett kiszervezve, hogy a WriteCode() átláthatóbb legyen
      */
-    public static void TopOfCode(){
+    public static int TopOfCode(){
+        int eleje = 0;
+        for(int i = 0; i < edges.size(); i++){
+            if(eleje == 0) eleje = edges.get(i).startLine;
+            if(edges.get(i).startLine < eleje && edges.get(i).startLine != 0) eleje = edges.get(i).startLine;
+        }
+        for(int i = 0; i < eleje; i++){
+            kod.append(sorok.get(i));   /*<----------sor hozzáadás---------<<<<<*/
+            kod.append("\n");
+        }
         kod.append(
-                "#include <assert.h>\n" +
-                        "#include <stdbool.h>\n" +
-                        "#include <stdio.h>\n" +
-                        "#include <pthread.h>\n" +
-                        "#include \"nondetfvek.h\"\n" +
-                        "pthread_mutex_t mutex;\n" +
-                        "#include <pthread.h>\n" +
-                        "pthread_cond_t cond;\n" +
-                        "int flag;");
+                /*"#include <assert.h>\n" +
+                "#include <stdbool.h>\n" +
+                "#include <stdio.h>\n" +
+                "#include <pthread.h>\n" +
+                "#include \"nondetfvek.h\"\n" +*/
+                "\npthread_mutex_t mutex;\n" +
+                "pthread_cond_t cond;\n" +
+                "int flag;\n");
         //thread ID-kat tárolják
         for(int i = 0; i < idk.size();i++){
             kod.append("int t");
             kod.append(idk.get(i));
             kod.append(" = -1;\n");
-        };
+        }
+        return eleje;
     }
 
     /**
@@ -454,21 +475,33 @@ public class Main {
     public static int SearchFirstJoin(){
         Pattern pattern;
         Matcher matcher;
-        int j = 0;
+        int start = 1;
+        int end = 0;
+        int sor = 0;
         //első join elé mutex unlock, hogy működjön (talán csak main-ben lesz ilyen, de nincs kizárva máshol sem, bár itt nem lesz még lekezelve)
-        pattern = Pattern.compile("main");
-        matcher = pattern.matcher(sorok.get(j));
-        while(!matcher.find() && j < sorok.size()){
-            j++;
-            matcher = pattern.matcher(sorok.get(j));
+//        pattern = Pattern.compile("main");
+//        matcher = pattern.matcher(sorok.get(j));
+//        while(!matcher.find() && j < sorok.size()){
+//            j++;
+//            matcher = pattern.matcher(sorok.get(j));
+//        }
+        for(int i = 0; i < funok.size(); i++){
+            if(funok.get(i).name.equals("main")){
+                start = funok.get(i).startLine;
+                end = funok.get(i).endLine;
+            }
         }
         pattern = Pattern.compile(".*pthread_join.*");
-        matcher = pattern.matcher(sorok.get(j));
-        while(!matcher.find() && j < sorok.size()){
-            j++;
-            matcher = pattern.matcher(sorok.get(j));
+        matcher = pattern.matcher(sorok.get(start - 1));
+        while(start < end){
+            if(matcher.find()){
+                sor = start;
+                return sor;
+            }
+            start++;
+            matcher = pattern.matcher(sorok.get(start - 1));
         }
-        return j;
+        return sor;
     }
 
     /**
@@ -490,50 +523,97 @@ public class Main {
 //                k--;
 //            }
             for(int l = 0; l < edges.size(); l++){
-                if(edges.get(l).Thread == idk.get(i)){
+                if(edges.get(l).thread == idk.get(i)){
                     if(idk.get(i) == 0){
-                        if(edges.get(l).Startline > funok.get(idx).startLine && edges.get(l).Startline < funok.get(idx).endLine)
+                        if(edges.get(l).startLine > funok.get(idx).startLine && edges.get(l).startLine < funok.get(idx).endLine)
                             k = l;
                     }
                     else k = l;
                 }
             }
-            lastLines.put(k, edges.get(k).Startline);
+            lastLines.put(k, edges.get(k).startLine);
             //k = edges.size(); //while-nál
         }
         return lastOfMain;
     }
 
     /**
-     * A fv-ek utolsó futó sora elé hozzáadja a mutex, condition variable és várakozás miatti szükséges sorokat
+     * A fv-ek utolsó futó sora elé/után hozzáadja a mutex, condition variable és várakozás miatti szükséges sorokat
      * Azért lett kiszervezve, hogy a WriteCode() átláthatóbb legyen
      * @param i - i-edik sorhoz kapja majd meg az indexet
      */
     public static void SetTheEndOfFunctions(int i){
-        //Megvizsgálja, hogy a lastLines Map-nek(k-dik él, StartLine), van-e olyan értéke (StartLine), ami i, tehát az i-dik sor szerepel-e az utolsó sorok között
-        if(lastLines.containsValue(i)){
-            int idx = 0;
+        int idx = 0;
+        int idxM = 0;
+        //Megvizsgálja, hogy a lastLines Map-nek(k-dik él, StartLine), van-e olyan értéke (StartLine), ami i, tehát az i-dik sor szerepel-e az utolsó sorok között (i+1 a main miatt kell)
+        if(lastLines.containsValue(i) || lastLines.containsValue(i + 1)){
             //végig megy a Map összes elemén, hogy kiderítse, hogy ahhoz az utolsó sorhoz milyen él index tartozik
-            for (Map.Entry mapElement:
-                    lastLines.entrySet()) {
+            for (Map.Entry mapElement: lastLines.entrySet()) {
                 if((int)mapElement.getValue() == i){
                     //Ezen az élen van az utolsó sora egy fv-nek
                     idx = (int)mapElement.getKey();
                 }
+                if((int)mapElement.getValue() == (i + 1)){
+                    //Ezen az élen van az utolsó sora egy fv-nek
+                    idxM = (int)mapElement.getKey();
+                }
             }
             //más, ha a main vége...
-            if(edges.get(idx).Thread == 0){
-                kod.append("pthread_cond_destroy(&cond);\n" +
-                        "pthread_mutex_destroy(&mutex);\n");
+            if(edges.get(idxM).thread == 0 && lastLines.containsValue(i + 1)){
+                kod.append("    pthread_cond_destroy(&cond);\n" +
+                        "    pthread_mutex_destroy(&mutex);\n");
             }
             //...és más, ha egyéb fv utolsó sora
-            else{
-                for(int l = edges.size() - 1; l > idx; l--){
+            if(edges.get(idx).thread != 0 && lastLines.containsValue(i)){
+                kod.append("    flag = t" + edges.get(idx + 1).thread + ";\n" +
+                        "    pthread_cond_broadcast(&cond);\n" +
+                        "    pthread_mutex_unlock(&mutex);\n");
+            }
+        }
+    }
 
+    /**
+     * A pthread_create() sorok után a létrejött thread ID-ja kerü eltárolásra
+     * Azért lett kiszervezve, hogy a WriteCode() átláthatóbb legyen
+     * @param i - i-edik sorhoz kapja majd meg az indexet
+     */
+    public static void SetAfterCrate(int i){
+        if(sorok.get(i).contains("pthread_create")){
+            for(int a = 0; a < edges.size(); a++){
+                int idx = sorok.get(i).indexOf("&");
+                if(edges.get(a).startLine == (i + 1)){
+                    kod.append("    t" + edges.get(a).createdThread + " = " + sorok.get(i).charAt(idx + 1) + ";\n");
                 }
-                kod.append("flag = t" + edges.get(idx).Thread + ";" +
-                        "pthread_cond_broadcast(&cond);\n" +
-                        "pthread_mutex_unlock(&mutex);\n");
+            }
+        }
+    }
+
+    /**
+     * Ha a paraméterként kapott indexű sor után szál váltás történik (amivel még nem ér véget a szál), akkor a szálváltás menetét írja hozzá
+     * Azért lett kiszervezve, hogy a WriteCode() átláthatóbb legyen
+     * @param idx - i-edik sorhoz kapja majd meg az indexet
+     */
+    public static void SetTheChange(int idx){
+        for (Map.Entry mapElement: lastLines.entrySet()) {
+            if((int)mapElement.getValue() == idx + 1){
+                //Ha utolsó él, nem sima váltás következik
+                return;
+            }
+        }
+        for (int i = 0; i < szalelek.size(); i++){
+            if(szalelek.get(i).startLine == (idx + 1) && szalelek.get(i).threadChanges){
+                kod.append(
+                        "    flag = t" + szalelek.get(i + 1).thread +";\n" +
+                        "    pthread_cond_broadcast(&cond);\n");
+                if(szalelek.get(i).thread == 0){
+                    kod.append("    while (flag != t0) {\n");
+                }
+                else{
+                    kod.append("    while (flag != maga) {\n");
+                }
+                kod.append(
+                        "        pthread_cond_wait(&cond, &mutex);\n" +
+                        "    }\n");
             }
         }
     }
@@ -547,24 +627,24 @@ public class Main {
         Pattern pattern;
         Matcher matcher;
         //valami szóköz csillag valami nyitó zárójel - regex-re illeszkedő után (remélhetőleg fv) elején fv eleji beállítási dolgok
-        pattern = Pattern.compile("^\\s*.*\\s*\\*\\s*.*\\(\n");
+        pattern = Pattern.compile(".*\\*.*\\(.*\\).*\\{.*");
         matcher = pattern.matcher(sorok.get(i));
         if(matcher.find() && !sorok.get(i).contains("main")){
             kod.append("    pthread_mutex_lock(&mutex);\n" +
                     "    int maga = pthread_self();\n" +
                     "    while (flag != maga) {\n" +
                     "        pthread_cond_wait(&cond, &mutex);\n" +
-                    "    }");
+                    "    }\n");
         }
         else{
             //main eleji beállítások
             pattern = Pattern.compile("int main\\(.*");
             matcher = pattern.matcher(sorok.get(i));
             if(matcher.find()){
-                kod.append("pthread_cond_init(&cond, NULL);\n" +
-                        "    pthread_mutex_init(&mutex, NULL);\n" +
+                kod.append("    pthread_cond_init(&cond, 0);\n" +
+                        "    pthread_mutex_init(&mutex, 0);\n" +
                         "    pthread_mutex_lock(&mutex);\n" +
-                        "    t0 = pthread_self();");
+                        "    t0 = pthread_self();\n");
             }
         }
     }
@@ -620,17 +700,23 @@ public class Main {
      * fordítás és futtatás
      * @param targetFolder a mappa, ahova létre lesz hozva a futtatható file
      */
-    public static void CompileCprog(String targetFolder){
+    public static void CompileCprog(String targetFolder) throws IOException {
         ClearAndSetFolder();
-
+        //linuxra
+//        ProcessBuilder builder = new ProcessBuilder(
+//                "sh", "-c", "cd " + targetFolder + " && gcc main.c -o main && ./main");
+        //windowsra
+        Process compile = new ProcessBuilder(
+                "cmd", "/C", "gcc" + "\"" + targetFolder + "-o", targetFolder + "main.exe", targetFolder + "main.c").start();
         ProcessBuilder builder = new ProcessBuilder(
-                "sh", "-c", "cd " + targetFolder + " && gcc main.c -o main && ./main");
+                "cd", targetFolder, "&&", "./main.exe");
         builder.redirectErrorStream(true);
         Process p = null;
         try {
             p = builder.start();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            p.waitFor();
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);  //itt hal meg
         }
         BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()));
         String line;

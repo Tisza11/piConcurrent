@@ -2,35 +2,37 @@ package hu.bme.mit.piConcurrent;
 
 public class Edge {
     //Az elvárt eredmény
-    public String Assumption = null;
+    public String assumption = null;
     //A kezdősor
-    public int Startline;
+    public int startLine;
     //A fv, amit az él reprezentál
-    public String Assumptionresultfunction;
+    public String assumptionResultFunction;
     //VERIFIER_nondet fv (visszatérési) típusa
-    public String Type;
+    public String type;
     //Allítás az adott élen (sokszor egy sor)
-    public String Stmt;
+    public String stmt;
     //Használható él
     public boolean toUse = false;
     //Az adott él egy nondet fv-t reprezentál
     public boolean haveNondetfv = false;
     //Másik szál-e az előző élhez képest
-    public boolean threadChanged = false;
+    public boolean threadChanges = false;
     //Véget ér-e ezután már a fv, aminek ez az egyik (utolsó) sora
     public boolean isLast = false;
     //Szál azonosító
-    public int Thread;
+    public int thread;
+    //létrehozott szál
+    public int createdThread;
 
     /**
      * Paraméter nélüli konstruktor
      */
     public Edge(){
-        Assumption = "";
-        Startline = 0;
-        Assumptionresultfunction = "fgv";
-        Type = "";
-        Thread = -1;
+        assumption = "";
+        startLine = 0;
+        assumptionResultFunction = "fgv";
+        type = "";
+        thread = -1;
     }
 
     /**
@@ -42,17 +44,17 @@ public class Edge {
      * @param trd - Thread
      */
     public Edge(String a, int sl, String arf, String t, int trd){
-        Assumption = a;
-        Startline = sl;
-        Assumptionresultfunction = arf;
-        Type = t;
-        Thread = trd;
+        assumption = a;
+        startLine = sl;
+        assumptionResultFunction = arf;
+        type = t;
+        thread = trd;
     }
 
     /**
      * Kiiratja a jellemzőit egy élnek
      */
     public void Writer(){
-        if(toUse)System.out.println("Assumption: " + Assumption + "\tAssumptionresultfunction: " + Assumptionresultfunction + "\tStartline: " + Startline + "\tThread: " + Thread);
+        if(toUse)System.out.println("Assumption: " + assumption + "\tAssumptionresultfunction: " + assumptionResultFunction + "\tStartline: " + startLine + "\tThread: " + thread);
     }
 }
