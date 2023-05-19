@@ -58,20 +58,21 @@ public class Main {
 
     //majd  @Parameter -nek ki kell szervezni, de amíg építem, addig marad így
     //cél mappa elérési útja
-    public static String targetFolder;
+    public static String targetFolder = "futasra";
 
     public static void main(String[] args) throws ParserConfigurationException, IOException, SAXException {
-        sourceFolder = "C:\\egyetem masolat\\felev6\\Onlab\\c-probak\\";
+//        sourceFolder = "C:\\egyetem masolat\\felev6\\Onlab\\c-probak\\";
+        sourceFolder = "";
         gmlFile = "witnessAzonos.graphml";
         codeFile = "funok.i";
-        targetFolder = "C:\\egyetem masolat\\felev6\\Onlab\\futasra\\";
+//        targetFolder = "C:\\egyetem masolat\\felev6\\Onlab\\futasra\\";
         if(!ReadXML(gmlFile, codeFile)) return;
         Init();
         ReadCode(/*codeFolder, */codeFile);
         ReadFuns();
         Checker();
-        WriteCode(targetFolder);
-        CompileCprog(targetFolder);
+        WriteCode();
+        CompileCprog();
     }
 
     /**
@@ -396,9 +397,8 @@ public class Main {
     /**
      * C és header fileok megírása
      * Ez alatt találhatóak a benne felhasznált fv-ek, amik azért lettek kirendezve, hogy átláthatóbb legyen az WriteCode()
-     * @param targetFolder ebbe a mappába lesz beleírva a c kód
      */
-    public static void WriteCode(String targetFolder){
+    public static void WriteCode(){
         SearchThreadChanges();
         int j = SearchFirstJoin();
         /*int LastLineInMain = */FindLastLines();
@@ -675,7 +675,7 @@ public class Main {
     public static void WriteOut(){
         //c file kiírása
         try {
-            FileWriter myWriter = new FileWriter(targetFolder + "main.c");
+            FileWriter myWriter = new FileWriter(targetFolder + "/main.c");
             myWriter.write(kod.toString());
             myWriter.close();
         } catch (IOException e) {
@@ -684,7 +684,7 @@ public class Main {
         }
         //header file kiiratása
         try {
-            FileWriter myWriter = new FileWriter(targetFolder + "nondetfvek.h");
+            FileWriter myWriter = new FileWriter(targetFolder + "/nondetfvek.h");
             myWriter.write("#ifndef NONDETFVEK_H_INCLUDED\n" +
                     "#define NONDETFVEK_H_INCLUDED\n");
             myWriter.write(headerbe.toString());
@@ -698,18 +698,21 @@ public class Main {
 
     /**
      * fordítás és futtatás
-     * @param targetFolder a mappa, ahova létre lesz hozva a futtatható file
      */
-    public static void CompileCprog(String targetFolder) throws IOException {
+    public static void CompileCprog() throws IOException {
         ClearAndSetFolder();
         //linuxra
 //        ProcessBuilder builder = new ProcessBuilder(
 //                "sh", "-c", "cd " + targetFolder + " && gcc main.c -o main && ./main");
+        ProcessBuilder builder;
+        builder = new ProcessBuilder(
+        "gcc", "-pthread", targetFolder +"/main.c ", "-o", targetFolder + "/main", "&&", targetFolder + "/main");
+//        builder.directory(new File("/futasra/"));
         //windowsra
-        Process compile = new ProcessBuilder(
-                "cmd", "/C", "gcc" + "\"" + targetFolder + "-o", targetFolder + "main.exe", targetFolder + "main.c").start();
-        ProcessBuilder builder = new ProcessBuilder(
-                "cd", targetFolder, "&&", "./main.exe");
+//        Process compile = new ProcessBuilder(
+//                "cmd", "/C", "gcc" + "\"" + targetFolder + "-o", targetFolder + "main.exe", targetFolder + "main.c").start();
+//        ProcessBuilder builder = new ProcessBuilder(
+//                "cd", targetFolder, "&&", "./main.exe");
         builder.redirectErrorStream(true);
         Process p = null;
         try {
@@ -742,7 +745,7 @@ public class Main {
         if(files.length > 2){
             final File[] fileok = dir.listFiles();
             for (File f: fileok){
-                if((!f.getName().equals("main.c")) && (!f.getName().equals("nondetfvek.h")))
+                if((!f.getName().equals("main.c")) && (!f.getName().equals("nondetfvek.h")));
                     f.delete();
             }
         }
